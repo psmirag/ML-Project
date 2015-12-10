@@ -1,20 +1,107 @@
 ---
-title: "ML project"
+title: "Practical Machine Learning project"
 output: html_document
 ---
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## Background
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
 
-```{r}
-summary(cars)
+### Data 
+The training data for this project are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.  
+
+```{r, results = FALSE, cache = TRUE}
+require(caret)
+require(foreach)
+require(parallel)
+require(data.table)
+set.seed(100)
+setwd("~/git/ML-Project")
+url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(url, destfile="pml-training.csv", method = 'curl')
+dataTrain <- read.csv("pml-training.csv")
 ```
 
-You can also embed plots, for example:
+The objective is to predict the classe variable
 
-```{r, echo=FALSE}
-plot(cars)
+```{r, results = TRUE, cache = TRUE}
+str(dataTrain$classe)
+summary(dataTrain$classe)
+plot(dataTrain$classe, main = "Classe distribution")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+We will use variables with complete rows, and reduce the dataset. We will also remove Name, ID, and timestamp variables that may interfere and not help the model
+```{r, results = FALSE, cache = TRUE}
+varIncomplete <- sapply(dataTrain, function (x) any(is.na(x) | x == ""))
+dataTrainPrediction <- dataTrain[, !varIncomplete]
+dataTrainPrediction <- dataTrainPrediction[, !grepl("X|user_name|.timestamp.|.timestamp|.window", names(dataTrainPrediction))]
+```
+
+```{r, results = TRUE, cache = TRUE}
+dim(dataTrainPrediction)
+```
+
+Next, we will partition and pre-process the training dataset
+```{r, results = TRUE, cache = TRUE}
+# Partitioning
+part <- createDataPartition(y=dataTrainPrediction$classe, p=0.6, list=FALSE)
+dataTrainModel <- dataTrainPrediction[part, ]
+dataProbeModel <- dataTrainPrediction[-part, ]
+preProc <- preProcess(dataTrainModel)
+preProc
+dataTrainModelPC <- predict(preProc, dataTrainModel) # Apply to train set
+preProc <- preProcess(dataProbeModel)
+dataProbeModelPC <- predict(preProc, dataProbeModel) # Apply to Probe set
+```
+
+## Select a model and train
+The dataset looks suitable for the RF (random forest) prediction model. The error threshold we will use to measure success is 3%. We will use the parallel processing RF methid within caret.
+
+```{r, results = TRUE, cache = TRUE}
+classeModel <- train(classe ~ ., data=dataTrainModelPC, method="parRF")
+classeModel
+```
+
+We now try the model against the probing dataset
+
+```{r, results = TRUE, cache = TRUE}
+predProbe <- predict(classeModel, dataProbeModelPC)
+confusionMatrix(predProbe, dataProbeModelPC$classe)
+classeModel$finalModel
+```
+
+The model seems to have 0.84% error rate (great!)
+
+A plot of the final model:
+```{r, results = TRUE, echo = TRUE, cache = TRUE}
+plot(varImp(classeModel), main = "Final model variable weights")
+```
+
+```{r, results = FALSE, echo = FALSE, cache = TRUE}
+save (classeModel, file="classeModel.RData") # we save the model for later use
+```
+
+## Use the model to predict Testing set
+We load and prepare the data
+```{r, results = FALSE, cache = TRUE}
+load(file="classeModel.RData", verbose=TRUE) # re-loading the model
+url2 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(url2, destfile="pml-testing.csv", method = 'curl')
+dataTest <- read.csv("pml-testing.csv")
+#preProc <- preProcess(dataTest)
+dataTestPC <- predict(preProc, dataTest) # Pre-process test dataset
+```
+
+Predict:
+```{r, results = TRUE, cache = TRUE}
+pred_classe <- predict(classeModel, dataTestPC)
+dataTestPC <- cbind(pred_classe, dataTestPC)
+dataTestPC[, c("user_name","pred_classe")]
+plot(dataTestPC$pred_classe, main = "Classe prediction distribution")
+```
