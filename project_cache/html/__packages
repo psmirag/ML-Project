@@ -2,3 +2,7 @@ base
 lattice
 ggplot2
 caret
+foreach
+data.table
+e1071
+randomForest

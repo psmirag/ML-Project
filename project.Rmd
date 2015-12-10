@@ -33,6 +33,9 @@ The objective is to predict the classe variable
 ```{r, results = TRUE, cache = TRUE}
 str(dataTrain$classe)
 summary(dataTrain$classe)
+```
+
+```{r, results = TRUE, echo=FALSE, cache = TRUE}
 plot(dataTrain$classe, main = "Classe distribution")
 ```
 
@@ -76,10 +79,10 @@ confusionMatrix(predProbe, dataProbeModelPC$classe)
 classeModel$finalModel
 ```
 
-The model seems to have 0.84% error rate (great!)
+The model seems to have 1% error rate (great!)
 
 A plot of the final model:
-```{r, results = TRUE, echo = TRUE, cache = TRUE}
+```{r, results = TRUE, echo = FALSE, cache = TRUE}
 plot(varImp(classeModel), main = "Final model variable weights")
 ```
 
@@ -103,5 +106,22 @@ Predict:
 pred_classe <- predict(classeModel, dataTestPC)
 dataTestPC <- cbind(pred_classe, dataTestPC)
 dataTestPC[, c("user_name","pred_classe")]
+```
+
+```{r, results = TRUE, echo=FALSE, cache = TRUE}
 plot(dataTestPC$pred_classe, main = "Classe prediction distribution")
 ```
+
+```{r, results = FALSE, echo=FALSE, cache = TRUE}
+# Coursera files:
+pml_write_files = function(x){
+  n = length(x)
+  path <- "answers"
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=file.path(path, filename),quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(pred_classe)
+```
+
