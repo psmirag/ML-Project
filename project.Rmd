@@ -18,9 +18,7 @@ The data for this project come from this source: http://groupware.les.inf.puc-ri
 
 ```{r, results = FALSE, cache = TRUE}
 require(caret)
-require(foreach)
-require(parallel)
-require(data.table)
+require(doMC)
 set.seed(100)
 setwd("~/git/ML-Project")
 url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
@@ -64,9 +62,10 @@ dataProbeModelPC <- predict(preProc, dataProbeModel) # Apply to Probe set
 ```
 
 ## Select a model and train
-The dataset looks suitable for the RF (random forest) prediction model. The error threshold we will use to measure success is 3%. We will use the parallel processing RF methid within caret.
+The dataset looks suitable for the RF (random forest) prediction model. The error threshold we will use to measure success is 3%. We will use the parallel processing to speed up learning.
 
 ```{r, results = TRUE, cache = TRUE}
+registerDoMC(cores = 4)
 classeModel <- train(classe ~ ., data=dataTrainModelPC, method="parRF")
 classeModel
 ```
@@ -79,7 +78,7 @@ confusionMatrix(predProbe, dataProbeModelPC$classe)
 classeModel$finalModel
 ```
 
-The model seems to have 1% error rate (great!)
+The model seems to have less than 1% error rate (great!)
 
 A plot of the final model:
 ```{r, results = TRUE, echo = FALSE, cache = TRUE}

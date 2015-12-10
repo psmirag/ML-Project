@@ -6,3 +6,5 @@ foreach
 data.table
 e1071
 randomForest
+iterators
+doMC
